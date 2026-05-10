@@ -117,7 +117,11 @@ export function unavailableResponse(statusCode, message, retryAfter, retryAfterH
   const retryAfterSec = Math.max(Math.ceil((new Date(retryAfter).getTime() - Date.now()) / 1000), 1);
   const msg = `${message} (${retryAfterHuman})`;
   return new Response(
-    JSON.stringify({ error: { message: msg } }),
+    JSON.stringify({
+      error: { message: msg },
+      retryAfter: retryAfter || null,
+      retryAfterHuman: retryAfterHuman || null
+    }),
     {
       status: statusCode,
       headers: {

@@ -102,6 +102,21 @@ export async function getProviderCredentials(provider, excludeConnectionIds = nu
     const providerOverride = (settings.providerStrategies || {})[providerId] || {};
     const strategy = providerOverride.fallbackStrategy || settings.fallbackStrategy || "fill-first";
 
+    // Deprioritize connections that just hit 401 (auth) within last 5 min,
+    // so a healthy account is tried first even if a stale-token account has
+    // higher priority. Falls back to broken account only if it's the last one.
+    const RECENT_AUTH_FAIL_MS = 5 * 60 * 1000;
+    const isRecentAuthFail = (c) => {
+      if (Number(c.errorCode) !== 401) return false;
+      const t = c.lastErrorAt ? new Date(c.lastErrorAt).getTime() : 0;
+      return t > 0 && (Date.now() - t) < RECENT_AUTH_FAIL_MS;
+    };
+    availableConnections.sort((a, b) => {
+      const av = isRecentAuthFail(a) ? 1 : 0;
+      const bv = isRecentAuthFail(b) ? 1 : 0;
+      return av - bv;
+    });
+
     let connection;
     // Pin to preferred connection if specified and available
     if (preferredConnectionId) {
